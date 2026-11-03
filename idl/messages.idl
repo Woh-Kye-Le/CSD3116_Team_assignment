@@ -1,0 +1,45 @@
+@final
+struct JoinRequest
+{
+    unsigned long long client_tag;
+    string<31>         username;
+    octet              client_nonce[16];
+};
+
+@final
+struct JoinChallenge
+{
+    unsigned long long client_tag;
+    octet              server_nonce[16];
+};
+
+@final
+struct JoinProof
+{
+    unsigned long long client_tag;
+    octet              mac[32];
+};
+
+@final
+struct JoinResponse
+{
+    unsigned long long client_tag;
+    long               int_player_id;
+    octet              mac[32];
+};
+
+@final
+struct Input
+{
+    @key long          int_player_id;
+    unsigned long long seq;
+    octet              data[20];
+};
+
+@final
+struct GameState
+{
+    @key long          int_player_id;
+    unsigned long long seq;
+    octet              data[40];
+};
