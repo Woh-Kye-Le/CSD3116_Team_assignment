@@ -35,6 +35,8 @@ typedef struct
     uint64_t   tx_seq;
     dds_time_t last_input_time;
     int8_t     dir;
+    bool       pause_seen;
+    uint8_t    pause_presses;
 } Player;
 
 typedef struct
@@ -46,6 +48,8 @@ typedef struct
     float   timer;
     int     winner;
     int     serve_dir;
+    bool    paused;
+    int     paused_by;
 } Game;
 
 typedef struct
@@ -211,6 +215,8 @@ static void game_to_waiting(Game *g)
     g->phase = PHASE_WAITING;
     g->score[0] = g->score[1] = 0;
     g->winner = 0;
+    g->paused = false;
+    g->paused_by = 0;
     game_center_ball(g);
 }
 
@@ -328,6 +334,15 @@ static void game_update(Game *g, float dt)
 {
     bool both_present = arr_Players[0].b_active && arr_Players[1].b_active;
 
+    if (g->paused)
+    {
+        if (both_present)
+            return;
+        g->paused = false;
+        g->paused_by = 0;
+        printf("[game] Pause cleared (a player left)\n");
+    }
+
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
         if (!arr_Players[i].b_active)
@@ -386,6 +401,8 @@ static void game_snapshot(const Game *g, GameSnapshot *s)
     s->phase = (uint8_t)g->phase;
     s->winner = (uint8_t)g->winner;
     s->countdown = (g->phase == PHASE_COUNTDOWN) ? (uint8_t)ceilf(g->timer) : 0;
+    s->paused = g->paused ? 1 : 0;
+    s->paused_by = (uint8_t)g->paused_by;
 }
 
 static Pending g_pending[MAX_PENDING];
@@ -560,6 +577,23 @@ static void handle_input(const Input *in, dds_time_t now)
         p->last_rx_seq = in->seq;
         p->last_input_time = now;
         p->dir = dir;
+
+        uint8_t presses = plain[2];
+        if (!p->pause_seen)
+        {
+            p->pause_seen = true;
+            p->pause_presses = presses;
+        }
+        uint8_t new_presses = (uint8_t)(presses - p->pause_presses);
+        p->pause_presses = presses;
+        bool both_present = arr_Players[0].b_active && arr_Players[1].b_active;
+        if ((new_presses & 1) && both_present && g_game.phase != PHASE_WAITING)
+        {
+            g_game.paused = !g_game.paused;
+            g_game.paused_by = g_game.paused ? id : 0;
+            printf("[game] Player %d %s the game\n", id, g_game.paused ? "paused" : "resumed");
+        }
+
         if (plain[1] & INPUT_FLAG_LEAVE)
             remove_player_locked(idx, "left the game");
     }
@@ -580,7 +614,7 @@ static void *network_worker(void *arg)
     while (!atomic_load(&g_stop))
     {
         dds_waitset_wait(n->waitset, NULL, 0, DDS_MSECS(100));
-        dds_time_t now = dds_time();
+        dds_time_t now = mono_now();
 
         for (int i = 0; i < MAX_TAKE; i++) samples[i] = &buf_join[i];
         rc = dds_take(n->join_reader, samples, infos, MAX_TAKE, MAX_TAKE);
@@ -670,7 +704,7 @@ int main(int argc, char *argv[])
 
     const dds_duration_t tick = DDS_NSECS_IN_SEC / TICK_HZ;
     const float dt = 1.0f / TICK_HZ;
-    dds_time_t next_tick = dds_time();
+    dds_time_t next_tick = mono_now();
 
     dds_time_t stats_start = next_tick;
     uint64_t stats_ticks = 0;
@@ -678,7 +712,7 @@ int main(int argc, char *argv[])
 
     while (!atomic_load(&g_stop))
     {
-        dds_time_t t0 = dds_time();
+        dds_time_t t0 = mono_now();
 
         GameSnapshot snap;
         int     send_count = 0;
@@ -720,7 +754,7 @@ int main(int argc, char *argv[])
         }
         sec_wipe(send_key, sizeof(send_key));
 
-        dds_time_t t1 = dds_time();
+        dds_time_t t1 = mono_now();
         dds_duration_t work = t1 - t0;
         stats_ticks++;
         stats_work_total += work;
@@ -740,7 +774,7 @@ int main(int argc, char *argv[])
         next_tick += tick;
         if (t1 > next_tick + 5 * tick)
             next_tick = t1;
-        dds_duration_t wait = next_tick - dds_time();
+        dds_duration_t wait = next_tick - mono_now();
         if (wait > 0)
             dds_sleepfor(wait);
     }

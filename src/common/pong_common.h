@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 #include "dds/dds.h"
 #include "messages.h"
 #include "secure.h"
@@ -55,7 +56,16 @@ typedef struct
     uint8_t phase;
     uint8_t winner;
     uint8_t countdown;
+    uint8_t paused;
+    uint8_t paused_by;
 } GameSnapshot;
+
+static inline dds_time_t mono_now(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (dds_time_t)ts.tv_sec * DDS_NSECS_IN_SEC + ts.tv_nsec;
+}
 
 static inline void put_f32(uint8_t *p, float f)
 {
@@ -85,6 +95,8 @@ static inline void pack_state(const GameSnapshot *s, uint8_t out[STATE_PLAIN_LEN
     out[19] = s->phase;
     out[20] = s->winner;
     out[21] = s->countdown;
+    out[22] = s->paused;
+    out[23] = s->paused_by;
 }
 
 static inline void unpack_state(const uint8_t in[STATE_PLAIN_LEN], GameSnapshot *s)
@@ -99,6 +111,8 @@ static inline void unpack_state(const uint8_t in[STATE_PLAIN_LEN], GameSnapshot 
     s->phase       = in[19];
     s->winner      = in[20];
     s->countdown   = in[21];
+    s->paused      = in[22];
+    s->paused_by   = in[23];
 }
 
 typedef struct
