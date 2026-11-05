@@ -1,7 +1,19 @@
 #include <GLFW/glfw3.h>
 #include "draw.h"
+#include "textures.h"
 #include "protocol.h"
 #include "stb_easy_font.h"
+
+static const Rgb k_player_rgb[MAX_PLAYERS] =
+{
+    { 0.30f, 0.90f, 0.95f },
+    { 0.85f, 0.30f, 0.90f },
+};
+
+Rgb draw_player_rgb(int idx)
+{
+    return k_player_rgb[idx == 0 ? 0 : 1];
+}
 
 void draw_text(float x, float y, float scale, const char *text)
 {
@@ -36,18 +48,22 @@ void draw_rect(float x, float y, float w, float h)
 
 void draw_set_player_color(int idx, float brightness)
 {
-    if (idx == 0) glColor3f(0.30f * brightness, 0.90f * brightness, 0.95f * brightness);
-    else          glColor3f(0.85f * brightness, 0.30f * brightness, 0.90f * brightness);
+    Rgb c = draw_player_rgb(idx);
+    glColor3f(c.r * brightness, c.g * brightness, c.b * brightness);
 }
 
 void draw_background(bool with_center_line)
 {
-    glClearColor(0.13f, 0.14f, 0.16f, 1.0f);
+    glClearColor(0.05f, 0.05f, 0.06f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    tex_draw_background();
 
-    glColor3f(0.10f, 0.11f, 0.12f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f, 0.0f, 0.0f, 0.35f);
     draw_rect(0, 0, PADDLE_MARGIN - 8, HEIGHT);
     draw_rect(WIDTH - PADDLE_MARGIN + 8, 0, PADDLE_MARGIN - 8, HEIGHT);
+    glDisable(GL_BLEND);
 
     if (with_center_line)
     {
@@ -66,10 +82,22 @@ void draw_dim_overlay(float alpha)
     glDisable(GL_BLEND);
 }
 
+void draw_flash(Rgb color, float alpha)
+{
+    if (alpha <= 0.0f)
+        return;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glColor4f(color.r, color.g, color.b, alpha);
+    draw_rect(0, 0, WIDTH, HEIGHT);
+    glDisable(GL_BLEND);
+}
+
 void draw_button(float x, float y, float w, float h, const char *label, bool selected)
 {
     if (selected)
     {
+        tex_draw_glow(x + w / 2.0f, y + h / 2.0f, w * 1.5f, h * 2.6f, 0.30f, 0.90f, 0.95f, 0.45f);
         glColor3f(0.30f, 0.90f, 0.95f);
         draw_rect(x, y, w, h);
         glColor3f(0.08f, 0.09f, 0.10f);
@@ -78,9 +106,35 @@ void draw_button(float x, float y, float w, float h, const char *label, bool sel
     {
         glColor3f(0.42f, 0.42f, 0.45f);
         draw_rect(x, y, w, h);
-        glColor3f(0.13f, 0.14f, 0.16f);
+        glColor3f(0.11f, 0.12f, 0.14f);
         draw_rect(x + 2, y + 2, w - 4, h - 4);
         glColor3f(0.90f, 0.90f, 0.90f);
     }
     draw_text_centered(x + w / 2.0f, y + h / 2.0f - 10.0f, 3.0f, label);
+}
+
+void draw_paddle(float x, float y, int idx, float brightness)
+{
+    Rgb c = draw_player_rgb(idx);
+    tex_draw_glow(x + PADDLE_W / 2.0f, y + PADDLE_H / 2.0f, PADDLE_W * 6.0f, PADDLE_H * 1.7f,
+                  c.r, c.g, c.b, 0.55f * brightness);
+
+    glBegin(GL_QUADS);
+    glColor3f(c.r * brightness * 1.15f, c.g * brightness * 1.15f, c.b * brightness * 1.15f);
+    glVertex2f(x, y);
+    glVertex2f(x + PADDLE_W, y);
+    glColor3f(c.r * brightness * 0.65f, c.g * brightness * 0.65f, c.b * brightness * 0.65f);
+    glVertex2f(x + PADDLE_W, y + PADDLE_H);
+    glVertex2f(x, y + PADDLE_H);
+    glEnd();
+
+    glColor3f(brightness, brightness, brightness);
+    draw_rect(x + 2, y + 4, 2, PADDLE_H - 8);
+}
+
+void draw_ball(float cx, float cy, float brightness)
+{
+    tex_draw_glow(cx, cy, BALL_SIZE * 5.0f, BALL_SIZE * 5.0f, 0.85f, 0.95f, 1.0f, 0.75f * brightness);
+    glColor3f(brightness, brightness, brightness);
+    draw_rect(cx - BALL_SIZE / 2.0f, cy - BALL_SIZE / 2.0f, BALL_SIZE, BALL_SIZE);
 }

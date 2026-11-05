@@ -9,6 +9,8 @@
 #include "client_net.h"
 #include "screens.h"
 #include "input.h"
+#include "textures.h"
+#include "effects.h"
 
 typedef struct
 {
@@ -51,6 +53,24 @@ static void capture_frame(const UiState *ui, FrameKey *frame)
         shared_view_get(&frame->view);
 }
 
+static void update_effects(const UiState *ui, const FrameKey *frame, const FrameKey *last, float dt)
+{
+    if (ui->screen == SCREEN_MENU)
+    {
+        effects_menu_update(dt);
+        return;
+    }
+    if (ui->screen != SCREEN_GAME)
+        return;
+
+    if (last->screen != SCREEN_GAME || !frame->view.have_snap)
+        effects_reset();
+    else if (memcmp(&frame->view.snap, &last->view.snap, sizeof(GameSnapshot)) != 0)
+        effects_observe(&frame->view.snap);
+
+    effects_update(dt, frame->view.have_snap && frame->view.snap.paused);
+}
+
 static void wait_for_next_frame(dds_time_t *next_frame, dds_duration_t frame_time)
 {
     *next_frame += frame_time;
@@ -65,6 +85,7 @@ static void run_frame_loop(GLFWwindow *window, UiState *ui, const char *username
 {
     const dds_duration_t frame_time = DDS_NSECS_IN_SEC / TICK_HZ;
     dds_time_t next_frame = mono_now();
+    dds_time_t last_time = next_frame;
     FrameKey last_frame;
     memset(&last_frame, 0, sizeof(last_frame));
     last_frame.screen = -1;
@@ -74,9 +95,16 @@ static void run_frame_loop(GLFWwindow *window, UiState *ui, const char *username
         glfwPollEvents();
         shared_set_input_dir(input_paddle_dir(window, ui));
 
+        dds_time_t now = mono_now();
+        float dt = (float)(now - last_time) / DDS_NSECS_IN_SEC;
+        last_time = now;
+
         FrameKey frame;
         capture_frame(ui, &frame);
-        bool changed = ui->need_redraw || memcmp(&frame, &last_frame, sizeof(frame)) != 0;
+        update_effects(ui, &frame, &last_frame, dt);
+
+        bool animating = ui->screen == SCREEN_MENU || effects_active();
+        bool changed = ui->need_redraw || animating || memcmp(&frame, &last_frame, sizeof(frame)) != 0;
         if (changed)
         {
             screens_render(ui, &frame.view, username);
@@ -120,11 +148,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    textures_init();
+
     UiState ui = { .screen = SCREEN_MENU, .menu_sel = MENU_PLAY, .back_hover = false, .need_redraw = true };
     input_install(window, &ui);
     run_frame_loop(window, &ui, creds.username);
 
     client_net_stop(&net);
+    textures_destroy();
     glfwDestroyWindow(window);
     glfwTerminate();
     pong_dds_destroy(&dds);

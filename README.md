@@ -251,7 +251,9 @@ files/
 │       ├── shared.h/.c         state shared between the two client threads
 │       ├── client_net.h/.c     DDS network thread: login, send input, receive state
 │       ├── screens.h/.c        menu, instructions, game and pause screens
-│       ├── draw.h/.c           OpenGL drawing primitives and text
+│       ├── draw.h/.c           OpenGL drawing: text, glowing paddles and ball, buttons
+│       ├── textures.h/.c       procedurally generated textures (background, glow)
+│       ├── effects.h/.c        ball trail, sparks, score flash/shake, confetti, menu demo
 │       └── input.h/.c          keyboard and mouse handling
 ├── third_party/
 │   └── stb_easy_font.h     text drawing (from the baseline)

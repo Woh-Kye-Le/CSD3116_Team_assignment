@@ -2,6 +2,9 @@
 #include <GLFW/glfw3.h>
 #include "screens.h"
 #include "draw.h"
+#include "effects.h"
+#include "textures.h"
+#include <math.h>
 #include "protocol.h"
 
 #define MENU_ITEM_W  320.0f
@@ -68,13 +71,11 @@ bool screens_back_button_at(double mx, double my)
 static void render_menu(const UiState *ui, const char *username)
 {
     draw_background(false);
+    effects_menu_draw();
 
-    glColor3f(0.30f, 0.90f, 0.95f);
-    draw_rect(70, 110, PADDLE_W, PADDLE_H);
-    glColor3f(0.85f, 0.30f, 0.90f);
-    draw_rect(WIDTH - 70 - PADDLE_W, 70, PADDLE_W, PADDLE_H);
-    glColor3f(1.0f, 1.0f, 1.0f);
-    draw_rect(600, 225, BALL_SIZE, BALL_SIZE);
+    float pulse = 0.5f + 0.5f * sinf(effects_time() * 2.0f);
+    tex_draw_glow(WIDTH / 2.0f, 108, 560, 220, 0.30f, 0.90f, 0.95f, 0.10f + 0.10f * pulse);
+    tex_draw_glow(WIDTH / 2.0f, 108, 360, 140, 0.85f, 0.30f, 0.90f, 0.08f + 0.08f * (1.0f - pulse));
 
     glColor3f(1.0f, 1.0f, 1.0f);
     draw_text_centered(WIDTH / 2.0f, 70, 10.0f, "PONG");
@@ -140,22 +141,29 @@ static void render_connecting(const ClientView *v, const char *username)
     draw_text_centered(WIDTH / 2.0f, HEIGHT - 40, 2.0f, buf);
 }
 
-static void render_field(const GameSnapshot *s, int me)
+static void render_scores(const GameSnapshot *s)
 {
     char buf[16];
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
+        float scale = 6.0f * effects_score_scale(i);
+        float cx = WIDTH / 2.0f + (i == 0 ? -70.0f : 70.0f);
+        float y = 25.0f - (scale - 6.0f) * 3.5f;
+        Rgb c = draw_player_rgb(i);
+        tex_draw_glow(cx, 46, 120 * effects_score_scale(i), 90, c.r, c.g, c.b, 0.18f);
         draw_set_player_color(i, 1.0f);
         snprintf(buf, sizeof(buf), "%d", s->score[i]);
-        draw_text_centered(WIDTH / 2.0f + (i == 0 ? -70.0f : 70.0f), 25, 6.0f, buf);
+        draw_text_centered(cx, y, scale, buf);
     }
+}
 
+static void render_field(const GameSnapshot *s, int me)
+{
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
         float x = (i == 0) ? PADDLE_MARGIN : WIDTH - PADDLE_MARGIN - PADDLE_W;
         bool active = (s->active_mask >> i) & 1;
-        draw_set_player_color(i, active ? 1.0f : 0.35f);
-        draw_rect(x, s->paddle_y[i], PADDLE_W, PADDLE_H);
+        draw_paddle(x, s->paddle_y[i], i, active ? 1.0f : 0.3f);
         if (i == me)
         {
             glColor3f(1.0f, 1.0f, 1.0f);
@@ -165,9 +173,10 @@ static void render_field(const GameSnapshot *s, int me)
 
     if (s->phase == PHASE_PLAYING || s->phase == PHASE_COUNTDOWN)
     {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        draw_rect(s->ball_x - BALL_SIZE / 2.0f, s->ball_y - BALL_SIZE / 2.0f, BALL_SIZE, BALL_SIZE);
+        effects_draw_trail();
+        draw_ball(s->ball_x, s->ball_y, 1.0f);
     }
+    effects_draw_particles();
 }
 
 static void render_phase_message(const GameSnapshot *s, int player_id)
@@ -180,10 +189,17 @@ static void render_phase_message(const GameSnapshot *s, int player_id)
         draw_text_centered(WIDTH / 2.0f, HEIGHT / 2.0f - 70, 3.0f, "Waiting for an opponent...");
         break;
     case PHASE_COUNTDOWN:
+    {
+        float scale = 7.0f * effects_countdown_scale();
         snprintf(buf, sizeof(buf), "%d", s->countdown);
-        draw_text_centered(WIDTH / 2.0f, HEIGHT / 2.0f - 110, 7.0f, buf);
+        tex_draw_glow(WIDTH / 2.0f, HEIGHT / 2.0f - 85, 180 * effects_countdown_scale(), 180, 1.0f, 1.0f, 1.0f, 0.18f);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        draw_text_centered(WIDTH / 2.0f, HEIGHT / 2.0f - 110 - (scale - 7.0f) * 3.5f, scale, buf);
         break;
+    }
     case PHASE_GAMEOVER:
+        tex_draw_glow(WIDTH / 2.0f, HEIGHT / 2.0f - 50, 520, 200, 1.0f, 1.0f, 1.0f, 0.15f);
+        glColor3f(1.0f, 1.0f, 1.0f);
         draw_text_centered(WIDTH / 2.0f, HEIGHT / 2.0f - 80, 6.0f,
                            s->winner == player_id ? "YOU WIN!" : "YOU LOSE");
         snprintf(buf, sizeof(buf), "Player %d wins %d - %d", s->winner, s->score[0], s->score[1]);
@@ -229,10 +245,18 @@ static void render_game(const ClientView *v, const char *username)
     }
 
     const GameSnapshot *s = &v->snap;
+    float sx, sy;
+    effects_shake_offset(&sx, &sy);
+    glPushMatrix();
+    glTranslatef(sx, sy, 0.0f);
     render_field(s, v->player_id - 1);
+    glPopMatrix();
+
+    render_scores(s);
     if (!s->paused)
         render_phase_message(s, v->player_id);
     render_footer(v, username);
+    effects_draw_flash();
     if (s->paused)
         render_pause_overlay(s, v->player_id);
 }
