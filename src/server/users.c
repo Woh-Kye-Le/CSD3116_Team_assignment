@@ -1,3 +1,12 @@
+/**
+ * @file    users.c
+ * @author  Sung Hong Chieh Jethro
+ * @date    2026-11-04
+ *
+ * @brief   User management and data structures.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +20,12 @@ static UserRecord g_users[MAX_USERS];
 static int        g_num_users = 0;
 static char       g_users_path[PATH_MAX + 16] = "data/users.txt";
 
+/**
+ * @brief Checks if a username is valid.
+ *
+ * @param name The username to validate.
+ * @return true if valid, false otherwise.
+ */
 bool users_name_valid(const char *name)
 {
     size_t len = strlen(name);
@@ -22,6 +37,9 @@ bool users_name_valid(const char *name)
     return true;
 }
 
+/**
+ * @brief Resolves the absolute path to the users data file.
+ */
 void users_resolve_path(void)
 {
     char exe[PATH_MAX];
@@ -41,16 +59,32 @@ void users_resolve_path(void)
         snprintf(g_users_path, sizeof(g_users_path), "%s/users.txt", resolved);
 }
 
+/**
+ * @brief Gets the current path to the users data file.
+ *
+ * @return The path string.
+ */
 const char *users_path(void)
 {
     return g_users_path;
 }
 
+/**
+ * @brief Gets the number of currently loaded users.
+ *
+ * @return The user count.
+ */
 int users_count(void)
 {
     return g_num_users;
 }
 
+/**
+ * @brief Finds a user by their username.
+ *
+ * @param name The username to search for.
+ * @return Pointer to the UserRecord if found, or NULL.
+ */
 const UserRecord *users_find(const char *name)
 {
     for (int i = 0; i < g_num_users; i++)
@@ -59,6 +93,11 @@ const UserRecord *users_find(const char *name)
     return NULL;
 }
 
+/**
+ * @brief Loads the user database from disk.
+ *
+ * @return The number of users loaded, or -1 on error.
+ */
 int users_load(void)
 {
     FILE *f = fopen(g_users_path, "r");
@@ -85,6 +124,13 @@ int users_load(void)
     return g_num_users;
 }
 
+/**
+ * @brief Adds a new user to the database and saves it.
+ *
+ * @param name The new username.
+ * @param password The user's password.
+ * @return 0 on success, or a positive error code on failure.
+ */
 int users_add(const char *name, const char *password)
 {
     if (!users_name_valid(name))
@@ -127,6 +173,9 @@ int users_add(const char *name, const char *password)
     return 0;
 }
 
+/**
+ * @brief Wipes all user data from memory securely.
+ */
 void users_wipe(void)
 {
     sec_wipe(g_users, sizeof(g_users));

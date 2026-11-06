@@ -1,3 +1,12 @@
+/**
+ * @file    draw.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Rendering and drawing logic.
+ *
+ * @version 1.0
+ */
 #include <GLFW/glfw3.h>
 #include "draw.h"
 #include "textures.h"
@@ -10,11 +19,25 @@ static const Rgb k_player_rgb[MAX_PLAYERS] =
     { 0.85f, 0.30f, 0.90f },
 };
 
+/**
+ * @brief Gets the RGB color for a given player.
+ *
+ * @param idx The index of the player.
+ * @return The RGB color of the player.
+ */
 Rgb draw_player_rgb(int idx)
 {
     return k_player_rgb[idx == 0 ? 0 : 1];
 }
 
+/**
+ * @brief Draws text at the specified coordinates.
+ *
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
+ * @param scale The scaling factor for the text.
+ * @param text The string to draw.
+ */
 void draw_text(float x, float y, float scale, const char *text)
 {
     static char buffer[65536];
@@ -30,12 +53,28 @@ void draw_text(float x, float y, float scale, const char *text)
     glPopMatrix();
 }
 
+/**
+ * @brief Draws horizontally centered text at the specified Y coordinate.
+ *
+ * @param cx The center X coordinate.
+ * @param y The Y coordinate.
+ * @param scale The scaling factor for the text.
+ * @param text The string to draw.
+ */
 void draw_text_centered(float cx, float y, float scale, const char *text)
 {
     float w = (float)stb_easy_font_width((char *)text) * scale;
     draw_text(cx - w / 2.0f, y, scale, text);
 }
 
+/**
+ * @brief Draws a filled rectangle.
+ *
+ * @param x The X coordinate of the top-left corner.
+ * @param y The Y coordinate of the top-left corner.
+ * @param w The width of the rectangle.
+ * @param h The height of the rectangle.
+ */
 void draw_rect(float x, float y, float w, float h)
 {
     glBegin(GL_QUADS);
@@ -46,12 +85,23 @@ void draw_rect(float x, float y, float w, float h)
     glEnd();
 }
 
+/**
+ * @brief Sets the OpenGL drawing color to the specified player's color.
+ *
+ * @param idx The index of the player.
+ * @param brightness The brightness multiplier.
+ */
 void draw_set_player_color(int idx, float brightness)
 {
     Rgb c = draw_player_rgb(idx);
     glColor3f(c.r * brightness, c.g * brightness, c.b * brightness);
 }
 
+/**
+ * @brief Draws the game background.
+ *
+ * @param with_center_line True to draw the center line.
+ */
 void draw_background(bool with_center_line)
 {
     glClearColor(0.05f, 0.05f, 0.06f, 1.0f);
@@ -73,6 +123,11 @@ void draw_background(bool with_center_line)
     }
 }
 
+/**
+ * @brief Draws a dim overlay over the entire screen.
+ *
+ * @param alpha The alpha (opacity) of the overlay.
+ */
 void draw_dim_overlay(float alpha)
 {
     glEnable(GL_BLEND);
@@ -82,6 +137,12 @@ void draw_dim_overlay(float alpha)
     glDisable(GL_BLEND);
 }
 
+/**
+ * @brief Draws a colored flash overlay over the entire screen.
+ *
+ * @param color The color of the flash.
+ * @param alpha The alpha (opacity) of the flash.
+ */
 void draw_flash(Rgb color, float alpha)
 {
     if (alpha <= 0.0f)
@@ -93,6 +154,16 @@ void draw_flash(Rgb color, float alpha)
     glDisable(GL_BLEND);
 }
 
+/**
+ * @brief Draws a UI button.
+ *
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
+ * @param w The width of the button.
+ * @param h The height of the button.
+ * @param label The text on the button.
+ * @param selected True if the button is selected/hovered.
+ */
 void draw_button(float x, float y, float w, float h, const char *label, bool selected)
 {
     if (selected)
@@ -113,6 +184,14 @@ void draw_button(float x, float y, float w, float h, const char *label, bool sel
     draw_text_centered(x + w / 2.0f, y + h / 2.0f - 10.0f, 3.0f, label);
 }
 
+/**
+ * @brief Draws a player's paddle.
+ *
+ * @param x The X coordinate.
+ * @param y The Y coordinate.
+ * @param idx The index of the player.
+ * @param brightness The brightness multiplier.
+ */
 void draw_paddle(float x, float y, int idx, float brightness)
 {
     Rgb c = draw_player_rgb(idx);
@@ -132,6 +211,13 @@ void draw_paddle(float x, float y, int idx, float brightness)
     draw_rect(x + 2, y + 4, 2, PADDLE_H - 8);
 }
 
+/**
+ * @brief Draws the ball.
+ *
+ * @param cx The center X coordinate.
+ * @param cy The center Y coordinate.
+ * @param brightness The brightness multiplier.
+ */
 void draw_ball(float cx, float cy, float brightness)
 {
     tex_draw_glow(cx, cy, BALL_SIZE * 5.0f, BALL_SIZE * 5.0f, 0.85f, 0.95f, 1.0f, 0.75f * brightness);

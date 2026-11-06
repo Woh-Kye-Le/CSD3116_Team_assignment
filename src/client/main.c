@@ -1,3 +1,12 @@
+/**
+ * @file    main.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Client application entry point.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <string.h>
 #include <GLFW/glfw3.h>
@@ -20,6 +29,12 @@ typedef struct
     ClientView view;
 } FrameKey;
 
+/**
+ * @brief Initializes and opens a GLFW window for the client.
+ *
+ * @param username The username of the client to display in the window title.
+ * @return A pointer to the created GLFWwindow, or NULL on failure.
+ */
 static GLFWwindow *open_window(const char *username)
 {
     if (!glfwInit())
@@ -43,6 +58,12 @@ static GLFWwindow *open_window(const char *username)
     return window;
 }
 
+/**
+ * @brief Captures the current UI state into a FrameKey for rendering comparisons.
+ *
+ * @param ui Pointer to the current UiState.
+ * @param frame Pointer to the FrameKey structure to populate.
+ */
 static void capture_frame(const UiState *ui, FrameKey *frame)
 {
     memset(frame, 0, sizeof(*frame));
@@ -53,6 +74,14 @@ static void capture_frame(const UiState *ui, FrameKey *frame)
         shared_view_get(&frame->view);
 }
 
+/**
+ * @brief Updates visual effects based on the UI state and game frame changes.
+ *
+ * @param ui Pointer to the current UiState.
+ * @param frame Pointer to the current FrameKey.
+ * @param last Pointer to the previous FrameKey.
+ * @param dt The time elapsed since the last frame in seconds.
+ */
 static void update_effects(const UiState *ui, const FrameKey *frame, const FrameKey *last, float dt)
 {
     if (ui->screen == SCREEN_MENU)
@@ -71,6 +100,12 @@ static void update_effects(const UiState *ui, const FrameKey *frame, const Frame
     effects_update(dt, frame->view.have_snap && frame->view.snap.paused);
 }
 
+/**
+ * @brief Waits for the required time to maintain the target frame rate.
+ *
+ * @param next_frame Pointer to the expected time of the next frame.
+ * @param frame_time The duration of a single frame.
+ */
 static void wait_for_next_frame(dds_time_t *next_frame, dds_duration_t frame_time)
 {
     *next_frame += frame_time;
@@ -81,6 +116,13 @@ static void wait_for_next_frame(dds_time_t *next_frame, dds_duration_t frame_tim
         dds_sleepfor(*next_frame - now);
 }
 
+/**
+ * @brief Executes the main application frame loop for rendering and input handling.
+ *
+ * @param window The GLFW window instance.
+ * @param ui Pointer to the UI state.
+ * @param username The current user's username.
+ */
 static void run_frame_loop(GLFWwindow *window, UiState *ui, const char *username)
 {
     const dds_duration_t frame_time = DDS_NSECS_IN_SEC / TICK_HZ;
@@ -117,6 +159,13 @@ static void run_frame_loop(GLFWwindow *window, UiState *ui, const char *username
     }
 }
 
+/**
+ * @brief The main entry point for the client application.
+ *
+ * @param argc The number of command-line arguments.
+ * @param argv The command-line arguments.
+ * @return 0 on success, non-zero on failure.
+ */
 int main(int argc, char *argv[])
 {
     setvbuf(stdout, NULL, _IOLBF, 0);

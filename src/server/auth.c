@@ -1,7 +1,23 @@
+/**
+ * @file    auth.c
+ * @author  Sung Hong Chieh Jethro
+ * @date    2026-11-04
+ *
+ * @brief   Authentication and security for the server.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <string.h>
 #include "auth.h"
 
+/**
+ * @brief Finds a pending login by client tag.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param tag The client tag to search for.
+ * @return Pointer to the PendingLogin if found, or NULL.
+ */
 static PendingLogin *pending_find(Auth *a, uint64_t tag)
 {
     for (int i = 0; i < MAX_PENDING; i++)
@@ -10,11 +26,22 @@ static PendingLogin *pending_find(Auth *a, uint64_t tag)
     return NULL;
 }
 
+/**
+ * @brief Clears a pending login entry securely.
+ *
+ * @param p Pointer to the PendingLogin entry.
+ */
 static void pending_clear(PendingLogin *p)
 {
     sec_wipe(p, sizeof(*p));
 }
 
+/**
+ * @brief Allocates a new pending login entry, evicting the oldest if full.
+ *
+ * @param a Pointer to the Auth structure.
+ * @return Pointer to the allocated PendingLogin entry.
+ */
 static PendingLogin *pending_alloc(Auth *a)
 {
     PendingLogin *p = &a->pending[0];
@@ -28,6 +55,13 @@ static PendingLogin *pending_alloc(Auth *a)
     return p;
 }
 
+/**
+ * @brief Starts tracking a new pending login from a join request.
+ *
+ * @param p Pointer to the PendingLogin entry.
+ * @param req Pointer to the JoinRequest.
+ * @param now The current time.
+ */
 static void pending_start(PendingLogin *p, const JoinRequest *req, dds_time_t now)
 {
     pending_clear(p);
@@ -49,6 +83,12 @@ static void pending_start(PendingLogin *p, const JoinRequest *req, dds_time_t no
         strcpy(p->username, "?");
 }
 
+/**
+ * @brief Sends a join challenge to a client.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param p Pointer to the PendingLogin entry.
+ */
 static void send_challenge(Auth *a, const PendingLogin *p)
 {
     JoinChallenge ch;
@@ -59,6 +99,13 @@ static void send_challenge(Auth *a, const PendingLogin *p)
         fprintf(stderr, "dds_write(challenge): %s\n", dds_strretcode(-rc));
 }
 
+/**
+ * @brief Validates a join proof received from a client.
+ *
+ * @param p Pointer to the PendingLogin entry.
+ * @param proof Pointer to the JoinProof.
+ * @return true if the proof is valid, false otherwise.
+ */
 static bool proof_is_valid(const PendingLogin *p, const JoinProof *proof)
 {
     uint8_t expected[SEC_MAC_LEN];
@@ -69,6 +116,14 @@ static bool proof_is_valid(const PendingLogin *p, const JoinProof *proof)
     return ok;
 }
 
+/**
+ * @brief Admits an authenticated client into the game world.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param p Pointer to the PendingLogin entry.
+ * @param now The current time.
+ * @return The assigned player ID, or a negative code on failure.
+ */
 static int admit(Auth *a, const PendingLogin *p, dds_time_t now)
 {
     world_lock(a->world);
@@ -87,6 +142,13 @@ static int admit(Auth *a, const PendingLogin *p, dds_time_t now)
     return id;
 }
 
+/**
+ * @brief Sends a join response back to the client.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param p Pointer to the PendingLogin entry.
+ * @param player_id The player ID assigned (or an error code).
+ */
 static void send_response(Auth *a, const PendingLogin *p, int player_id)
 {
     JoinResponse resp;
@@ -102,6 +164,14 @@ static void send_response(Auth *a, const PendingLogin *p, int player_id)
         fprintf(stderr, "dds_write(response): %s\n", dds_strretcode(-rc));
 }
 
+/**
+ * @brief Initializes the authentication subsystem.
+ *
+ * @param a Pointer to the Auth structure to initialize.
+ * @param world Pointer to the World instance.
+ * @param challenge_writer DDS writer entity for sending join challenges.
+ * @param response_writer DDS writer entity for sending join responses.
+ */
 void auth_init(Auth *a, World *world, dds_entity_t challenge_writer, dds_entity_t response_writer)
 {
     memset(a, 0, sizeof(*a));
@@ -110,11 +180,23 @@ void auth_init(Auth *a, World *world, dds_entity_t challenge_writer, dds_entity_
     a->response_writer = response_writer;
 }
 
+/**
+ * @brief Destroys the authentication subsystem and cleans up resources.
+ *
+ * @param a Pointer to the Auth structure.
+ */
 void auth_destroy(Auth *a)
 {
     sec_wipe(a->pending, sizeof(a->pending));
 }
 
+/**
+ * @brief Handles an incoming join request.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param req Pointer to the received JoinRequest.
+ * @param now The current time.
+ */
 void auth_on_join_request(Auth *a, const JoinRequest *req, dds_time_t now)
 {
     PendingLogin *p = pending_find(a, req->client_tag);
@@ -126,6 +208,13 @@ void auth_on_join_request(Auth *a, const JoinRequest *req, dds_time_t now)
     send_challenge(a, p);
 }
 
+/**
+ * @brief Handles an incoming join proof.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param proof Pointer to the received JoinProof.
+ * @param now The current time.
+ */
 void auth_on_join_proof(Auth *a, const JoinProof *proof, dds_time_t now)
 {
     PendingLogin *p = pending_find(a, proof->client_tag);
@@ -145,6 +234,12 @@ void auth_on_join_proof(Auth *a, const JoinProof *proof, dds_time_t now)
     pending_clear(p);
 }
 
+/**
+ * @brief Expires pending login requests that have timed out.
+ *
+ * @param a Pointer to the Auth structure.
+ * @param now The current time.
+ */
 void auth_expire(Auth *a, dds_time_t now)
 {
     for (int i = 0; i < MAX_PENDING; i++)

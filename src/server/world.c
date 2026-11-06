@@ -1,12 +1,32 @@
+/**
+ * @file    world.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   World state and entity management.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <string.h>
 #include "world.h"
 
+/**
+ * @brief Checks if both players are present and active in the world.
+ * @param w Pointer to the World structure.
+ * @return true if both players are active, false otherwise.
+ */
 static bool both_present(const World *w)
 {
     return w->players[0].active && w->players[1].active;
 }
 
+/**
+ * @brief Removes a player from the world and cleans up their state.
+ * @param w Pointer to the World structure.
+ * @param idx Index of the player to remove (0 or 1).
+ * @param reason The reason for the player's removal.
+ */
 static void remove_player(World *w, int idx, const char *reason)
 {
     Player *p = &w->players[idx];
@@ -15,6 +35,13 @@ static void remove_player(World *w, int idx, const char *reason)
     memset(p, 0, sizeof(*p));
 }
 
+/**
+ * @brief Applies accumulated pause button presses from a player.
+ * @param w Pointer to the World structure.
+ * @param p Pointer to the Player structure.
+ * @param player_id The ID of the player pressing pause.
+ * @param presses The total number of pause presses recorded.
+ */
 static void apply_pause_presses(World *w, Player *p, int player_id, uint8_t presses)
 {
     if (!p->pause_seen)
@@ -28,6 +55,10 @@ static void apply_pause_presses(World *w, Player *p, int player_id, uint8_t pres
         game_toggle_pause(&w->game, player_id, both_present(w));
 }
 
+/**
+ * @brief Initializes the world state.
+ * @param w Pointer to the World structure.
+ */
 void world_init(World *w)
 {
     memset(w, 0, sizeof(*w));
@@ -35,6 +66,10 @@ void world_init(World *w)
     game_init(&w->game);
 }
 
+/**
+ * @brief Destroys the world state and cleans up resources.
+ * @param w Pointer to the World structure.
+ */
 void world_destroy(World *w)
 {
     for (int i = 0; i < MAX_PLAYERS; i++)
@@ -42,16 +77,31 @@ void world_destroy(World *w)
     pthread_mutex_destroy(&w->mutex);
 }
 
+/**
+ * @brief Locks the world state mutex for thread-safe access.
+ * @param w Pointer to the World structure.
+ */
 void world_lock(World *w)
 {
     pthread_mutex_lock(&w->mutex);
 }
 
+/**
+ * @brief Unlocks the world state mutex.
+ * @param w Pointer to the World structure.
+ */
 void world_unlock(World *w)
 {
     pthread_mutex_unlock(&w->mutex);
 }
 
+/**
+ * @brief Admits a new player into the world.
+ * @param w Pointer to the World structure.
+ * @param username The username of the new player.
+ * @param now The current time.
+ * @return The assigned player ID, or an error code if joining failed.
+ */
 int world_admit_locked(World *w, const char *username, dds_time_t now)
 {
     int free_idx = -1;
@@ -75,11 +125,24 @@ int world_admit_locked(World *w, const char *username, dds_time_t now)
     return free_idx + 1;
 }
 
+/**
+ * @brief Gets the session key for a specific player.
+ * @param w Pointer to the World structure.
+ * @param player_id The ID of the player.
+ * @return A pointer to the player's session key.
+ */
 uint8_t *world_session_key_locked(World *w, int player_id)
 {
     return w->players[player_id - 1].session_key;
 }
 
+/**
+ * @brief Retrieves the session view for a specific player.
+ * @param w Pointer to the World structure.
+ * @param player_id The ID of the player.
+ * @param out Pointer to the SessionView structure to populate.
+ * @return true if the player is active, false otherwise.
+ */
 bool world_session_locked(World *w, int player_id, SessionView *out)
 {
     const Player *p = &w->players[player_id - 1];
@@ -90,6 +153,15 @@ bool world_session_locked(World *w, int player_id, SessionView *out)
     return p->active;
 }
 
+/**
+ * @brief Applies an input payload to a player's state.
+ * @param w Pointer to the World structure.
+ * @param player_id The ID of the player.
+ * @param session_gen The session generation of the player.
+ * @param seq The sequence number of the input payload.
+ * @param in Pointer to the InputPayload structure.
+ * @param now The current time.
+ */
 void world_apply_input_locked(World *w, int player_id, uint32_t session_gen, uint64_t seq,
                               const InputPayload *in, dds_time_t now)
 {
@@ -107,6 +179,14 @@ void world_apply_input_locked(World *w, int player_id, uint32_t session_gen, uin
         remove_player(w, idx, "left the game");
 }
 
+/**
+ * @brief Ticks the world state forward by one frame.
+ * @param w Pointer to the World structure.
+ * @param dt Time elapsed since the last tick in seconds.
+ * @param now The current time.
+ * @param snap Pointer to a GameSnapshot structure to populate with the current game state.
+ * @param out Pointer to an Outbox structure to populate with outgoing messages.
+ */
 void world_tick_locked(World *w, float dt, dds_time_t now, GameSnapshot *snap, Outbox *out)
 {
     bool    active[MAX_PLAYERS];

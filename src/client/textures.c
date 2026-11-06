@@ -1,3 +1,12 @@
+/**
+ * @file    textures.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Texture loading and management.
+ *
+ * @version 1.0
+ */
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
@@ -11,6 +20,12 @@
 static GLuint g_bg_tex = 0;
 static GLuint g_glow_tex = 0;
 
+/**
+ * @brief Hashes a 32-bit integer.
+ *
+ * @param x The input integer.
+ * @return The hashed 32-bit integer.
+ */
 static uint32_t hash32(uint32_t x)
 {
     x ^= x >> 16;
@@ -21,6 +36,12 @@ static uint32_t hash32(uint32_t x)
     return x;
 }
 
+/**
+ * @brief Converts a float in [0, 1] to an unsigned char in [0, 255].
+ *
+ * @param v The float value.
+ * @return The converted unsigned byte.
+ */
 static unsigned char to_byte(float v)
 {
     if (v < 0.0f) v = 0.0f;
@@ -28,6 +49,15 @@ static unsigned char to_byte(float v)
     return (unsigned char)(v * 255.0f + 0.5f);
 }
 
+/**
+ * @brief Uploads pixel data to an OpenGL texture.
+ *
+ * @param w The width of the texture.
+ * @param h The height of the texture.
+ * @param format The OpenGL format of the pixel data.
+ * @param pixels Pointer to the pixel data.
+ * @return The generated OpenGL texture ID.
+ */
 static GLuint upload(int w, int h, GLenum format, const unsigned char *pixels)
 {
     GLuint tex;
@@ -43,6 +73,11 @@ static GLuint upload(int w, int h, GLenum format, const unsigned char *pixels)
     return tex;
 }
 
+/**
+ * @brief Builds the background texture pixel data.
+ *
+ * @param px Pointer to the pixel buffer to fill.
+ */
 static void build_background(unsigned char *px)
 {
     for (int y = 0; y < BG_SIZE; y++)
@@ -67,6 +102,11 @@ static void build_background(unsigned char *px)
     }
 }
 
+/**
+ * @brief Builds the glow texture pixel data.
+ *
+ * @param px Pointer to the pixel buffer to fill.
+ */
 static void build_glow(unsigned char *px)
 {
     for (int y = 0; y < GLOW_SIZE; y++)
@@ -85,6 +125,15 @@ static void build_glow(unsigned char *px)
     }
 }
 
+/**
+ * @brief Draws a textured quad.
+ *
+ * @param tex The OpenGL texture ID.
+ * @param x The X coordinate of the quad.
+ * @param y The Y coordinate of the quad.
+ * @param w The width of the quad.
+ * @param h The height of the quad.
+ */
 static void textured_quad(GLuint tex, float x, float y, float w, float h)
 {
     glEnable(GL_TEXTURE_2D);
@@ -99,6 +148,9 @@ static void textured_quad(GLuint tex, float x, float y, float w, float h)
     glDisable(GL_TEXTURE_2D);
 }
 
+/**
+ * @brief Initializes the texture system and generates textures.
+ */
 void textures_init(void)
 {
     unsigned char *bg = malloc(BG_SIZE * BG_SIZE * 3);
@@ -114,6 +166,9 @@ void textures_init(void)
     free(glow);
 }
 
+/**
+ * @brief Destroys the texture system and frees OpenGL resources.
+ */
 void textures_destroy(void)
 {
     if (g_bg_tex)
@@ -123,12 +178,27 @@ void textures_destroy(void)
     g_bg_tex = g_glow_tex = 0;
 }
 
+/**
+ * @brief Draws the background texture over the entire screen.
+ */
 void tex_draw_background(void)
 {
     glColor3f(1.0f, 1.0f, 1.0f);
     textured_quad(g_bg_tex, 0.0f, 0.0f, WIDTH, HEIGHT);
 }
 
+/**
+ * @brief Draws a colored glow effect using the glow texture.
+ *
+ * @param cx The center X coordinate.
+ * @param cy The center Y coordinate.
+ * @param w The width of the glow.
+ * @param h The height of the glow.
+ * @param r The red color component.
+ * @param g The green color component.
+ * @param b The blue color component.
+ * @param a The alpha (opacity) component.
+ */
 void tex_draw_glow(float cx, float cy, float w, float h, float r, float g, float b, float a)
 {
     glEnable(GL_BLEND);

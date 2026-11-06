@@ -1,3 +1,12 @@
+/**
+ * @file    client_net.c
+ * @author  Sung Hong Chieh Jethro
+ * @date    2026-11-04
+ *
+ * @brief   Client-side networking and DDS communication.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <string.h>
 #include "client_net.h"
@@ -31,6 +40,10 @@ typedef struct
     uint8_t     last_presses_sent;
 } Worker;
 
+/**
+ * @brief Generate a new session attempt.
+ * @param s Pointer to the Session structure to reset.
+ */
 static void session_new_attempt(Session *s)
 {
     sec_wipe(s, sizeof(*s));
@@ -38,12 +51,23 @@ static void session_new_attempt(Session *s)
     sec_random(s->client_nonce, SEC_NONCE_LEN);
 }
 
+/**
+ * @brief Set the current connection state and update the shared view.
+ * @param w Pointer to the Worker structure.
+ * @param conn The new connection state.
+ * @param player_id The player ID.
+ * @param status A string describing the status.
+ */
 static void set_conn(Worker *w, int conn, int player_id, const char *status)
 {
     w->conn = conn;
     shared_view_set_conn(conn, player_id, status);
 }
 
+/**
+ * @brief Send a join request to the server.
+ * @param w Pointer to the Worker structure.
+ */
 static void send_join_request(Worker *w)
 {
     JoinRequest req;
@@ -54,6 +78,13 @@ static void send_join_request(Worker *w)
     dds_write(w->net->join_writer, &req);
 }
 
+/**
+ * @brief Send player input to the server.
+ * @param w Pointer to the Worker structure.
+ * @param dir The paddle direction (-1, 0, or 1).
+ * @param flags The input flags (e.g., leave game).
+ * @param pause_presses The number of pause button presses.
+ */
 static void send_input(Worker *w, int8_t dir, uint8_t flags, uint8_t pause_presses)
 {
     InputPayload payload = { .dir = dir, .flags = flags, .pause_presses = pause_presses };
@@ -67,6 +98,10 @@ static void send_input(Worker *w, int8_t dir, uint8_t flags, uint8_t pause_press
     dds_write(w->net->input_writer, &in);
 }
 
+/**
+ * @brief Send a leave request to the server.
+ * @param w Pointer to the Worker structure.
+ */
 static void send_leave(Worker *w)
 {
     uint8_t presses = shared_pause_presses();
@@ -78,12 +113,20 @@ static void send_leave(Worker *w)
     printf("Left the game\n");
 }
 
+/**
+ * @brief Restart the login process.
+ * @param w Pointer to the Worker structure.
+ */
 static void restart_login(Worker *w)
 {
     session_new_attempt(&w->s);
     w->conn = CONN_CONNECTING;
 }
 
+/**
+ * @brief Handle UI requests like play and leave.
+ * @param w Pointer to the Worker structure.
+ */
 static void handle_ui_request(Worker *w)
 {
     int req = shared_take_request();
@@ -102,6 +145,12 @@ static void handle_ui_request(Worker *w)
     }
 }
 
+/**
+ * @brief Process an incoming challenge from the server.
+ * @param w Pointer to the Worker structure.
+ * @param ch Pointer to the JoinChallenge message.
+ * @param now The current monotonic time.
+ */
 static void on_challenge(Worker *w, const JoinChallenge *ch, dds_time_t now)
 {
     if (w->conn != CONN_CONNECTING || ch->client_tag != w->s.tag)
@@ -119,6 +168,12 @@ static void on_challenge(Worker *w, const JoinChallenge *ch, dds_time_t now)
     set_conn(w, CONN_AUTHENTICATING, -1, "Authenticating...");
 }
 
+/**
+ * @brief Process an incoming response from the server.
+ * @param w Pointer to the Worker structure.
+ * @param r Pointer to the JoinResponse message.
+ * @param now The current monotonic time.
+ */
 static void on_response(Worker *w, const JoinResponse *r, dds_time_t now)
 {
     if (w->conn != CONN_AUTHENTICATING || r->client_tag != w->s.tag)
@@ -163,6 +218,13 @@ static void on_response(Worker *w, const JoinResponse *r, dds_time_t now)
     }
 }
 
+/**
+ * @brief Process an incoming game state update from the server.
+ * @param w Pointer to the Worker structure.
+ * @param gs Pointer to the GameState message.
+ * @param out Pointer to store the unpacked game snapshot.
+ * @return true if the state was successfully unpacked and valid, false otherwise.
+ */
 static bool on_state(Worker *w, const GameState *gs, GameSnapshot *out)
 {
     if (w->conn != CONN_JOINED || gs->int_player_id != w->s.player_id || gs->seq <= w->s.last_rx_seq)
@@ -176,6 +238,11 @@ static bool on_state(Worker *w, const GameState *gs, GameSnapshot *out)
     return true;
 }
 
+/**
+ * @brief Drain incoming DDS readers and process their samples.
+ * @param w Pointer to the Worker structure.
+ * @param now The current monotonic time.
+ */
 static void drain_readers(Worker *w, dds_time_t now)
 {
     JoinChallenge buf_chal[MAX_TAKE];
@@ -212,6 +279,11 @@ static void drain_readers(Worker *w, dds_time_t now)
     }
 }
 
+/**
+ * @brief Send input to the server if the state changed or heartbeat is needed.
+ * @param w Pointer to the Worker structure.
+ * @param now The current monotonic time.
+ */
 static void send_input_if_needed(Worker *w, dds_time_t now)
 {
     int8_t dir = shared_input_dir();
@@ -225,6 +297,11 @@ static void send_input_if_needed(Worker *w, dds_time_t now)
     }
 }
 
+/**
+ * @brief Run network timers (retries, timeouts, heartbeats).
+ * @param w Pointer to the Worker structure.
+ * @param now The current monotonic time.
+ */
 static void run_timers(Worker *w, dds_time_t now)
 {
     switch (w->conn)
@@ -260,6 +337,11 @@ static void run_timers(Worker *w, dds_time_t now)
     }
 }
 
+/**
+ * @brief The worker thread loop for client networking.
+ * @param arg Pointer to the ClientNet structure.
+ * @return NULL.
+ */
 static void *worker_thread(void *arg)
 {
     Worker w;
@@ -284,6 +366,12 @@ static void *worker_thread(void *arg)
     return NULL;
 }
 
+/**
+ * @brief Initialize the client network state.
+ * @param n Pointer to the ClientNet structure to initialize.
+ * @param dds Pointer to the DDS setup structure.
+ * @param creds Pointer to the user credentials.
+ */
 void client_net_init(ClientNet *n, PongDds *dds, const Credentials *creds)
 {
     n->creds = creds;
@@ -299,6 +387,11 @@ void client_net_init(ClientNet *n, PongDds *dds, const Credentials *creds)
     pong_attach(n->waitset, n->state_reader);
 }
 
+/**
+ * @brief Start the client network worker thread.
+ * @param n Pointer to the initialized ClientNet structure.
+ * @return 0 on success, or a non-zero error code on failure.
+ */
 int client_net_start(ClientNet *n)
 {
     if (pthread_create(&n->thread, NULL, worker_thread, n) != 0)
@@ -309,6 +402,10 @@ int client_net_start(ClientNet *n)
     return 0;
 }
 
+/**
+ * @brief Stop the client network worker thread and clean up.
+ * @param n Pointer to the ClientNet structure.
+ */
 void client_net_stop(ClientNet *n)
 {
     shared_request_quit();

@@ -1,6 +1,21 @@
+/**
+ * @file    perf.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Performance monitoring and optimization.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include "perf.h"
 
+/**
+ * @brief Initializes the performance statistics tracker.
+ *
+ * @param p Pointer to the PerfStats structure to initialize.
+ * @param now The current monotonic time in DDS format.
+ */
 void perf_init(PerfStats *p, dds_time_t now)
 {
     p->period_start = now;
@@ -9,6 +24,14 @@ void perf_init(PerfStats *p, dds_time_t now)
     p->work_max = 0;
 }
 
+/**
+ * @brief Records performance statistics for a single simulation tick.
+ *
+ * @param p Pointer to the PerfStats structure.
+ * @param tick_start The start time of the tick in DDS format.
+ * @param tick_end The end time of the tick in DDS format.
+ * @param players The current number of players in the game.
+ */
 void perf_record(PerfStats *p, dds_time_t tick_start, dds_time_t tick_end, int players)
 {
     dds_duration_t work = tick_end - tick_start;

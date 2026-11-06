@@ -1,3 +1,12 @@
+/**
+ * @file    main.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Server application entry point.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -15,12 +24,23 @@
 
 static atomic_bool g_stop = false;
 
+/**
+ * @brief Handles SIGINT (Ctrl+C) signals to trigger server shutdown.
+ *
+ * @param sig The signal number.
+ */
 static void on_sigint(int sig)
 {
     (void)sig;
     atomic_store(&g_stop, true);
 }
 
+/**
+ * @brief Prints the server usage instructions to stderr.
+ *
+ * @param prog The name of the program executable.
+ * @return Always returns 1 to indicate an error/exit status.
+ */
 static int print_usage(const char *prog)
 {
     fprintf(stderr, "Usage: %s                         run the server\n"
@@ -29,6 +49,13 @@ static int print_usage(const char *prog)
     return 1;
 }
 
+/**
+ * @brief Broadcasts the current game state to all connected clients.
+ *
+ * @param state_writer The DDS writer entity for the game state topic.
+ * @param snap Pointer to the current GameSnapshot to broadcast.
+ * @param out Pointer to the Outbox containing recipient information and session keys.
+ */
 static void broadcast_state(dds_entity_t state_writer, const GameSnapshot *snap, Outbox *out)
 {
     uint8_t plain[STATE_PLAIN_LEN];
@@ -48,6 +75,13 @@ static void broadcast_state(dds_entity_t state_writer, const GameSnapshot *snap,
     sec_wipe(out->session_key, sizeof(out->session_key));
 }
 
+/**
+ * @brief Sleeps the thread until the next simulation tick.
+ *
+ * @param next_tick Pointer to the expected time of the next tick.
+ * @param tick The duration of a single tick.
+ * @param now The current monotonic time in DDS format.
+ */
 static void sleep_until(dds_time_t *next_tick, dds_duration_t tick, dds_time_t now)
 {
     *next_tick += tick;
@@ -58,6 +92,12 @@ static void sleep_until(dds_time_t *next_tick, dds_duration_t tick, dds_time_t n
         dds_sleepfor(wait);
 }
 
+/**
+ * @brief Runs the main server game simulation loop.
+ *
+ * @param world Pointer to the server game world state.
+ * @param state_writer The DDS writer entity for broadcasting the game state.
+ */
 static void run_simulation(World *world, dds_entity_t state_writer)
 {
     const dds_duration_t tick = DDS_NSECS_IN_SEC / TICK_HZ;
@@ -86,6 +126,11 @@ static void run_simulation(World *world, dds_entity_t state_writer)
     }
 }
 
+/**
+ * @brief Initializes and runs the pong server, handling networking and simulation.
+ *
+ * @return 0 on success, non-zero on failure.
+ */
 static int run_server(void)
 {
     if (users_load() <= 0)
@@ -134,6 +179,13 @@ static int run_server(void)
     return 0;
 }
 
+/**
+ * @brief The main entry point for the server application.
+ *
+ * @param argc The number of command-line arguments.
+ * @param argv The command-line arguments.
+ * @return 0 on success, non-zero on failure.
+ */
 int main(int argc, char *argv[])
 {
     setvbuf(stdout, NULL, _IOLBF, 0);

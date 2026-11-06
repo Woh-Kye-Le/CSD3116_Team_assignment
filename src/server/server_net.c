@@ -1,6 +1,21 @@
+/**
+ * @file    server_net.c
+ * @author  Sung Hong Chieh Jethro
+ * @date    2026-11-04
+ *
+ * @brief   Server-side networking and DDS communication.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include "server_net.h"
 
+/**
+ * @brief Handle incoming input from a client.
+ * @param n Pointer to the ServerNet structure.
+ * @param in Pointer to the Input message.
+ * @param now The current monotonic time.
+ */
 static void handle_input(ServerNet *n, const Input *in, dds_time_t now)
 {
     int id = in->int_player_id;
@@ -40,6 +55,14 @@ static void handle_input(ServerNet *n, const Input *in, dds_time_t now)
     world_unlock(n->world);
 }
 
+/**
+ * @brief Initialize the server network state.
+ * @param n Pointer to the ServerNet structure to initialize.
+ * @param dds Pointer to the DDS setup structure.
+ * @param world Pointer to the game world structure.
+ * @param auth Pointer to the authentication structure.
+ * @param stop Pointer to the atomic stop flag.
+ */
 void server_net_init(ServerNet *n, PongDds *dds, World *world, Auth *auth, atomic_bool *stop)
 {
     n->world = world;
@@ -54,6 +77,11 @@ void server_net_init(ServerNet *n, PongDds *dds, World *world, Auth *auth, atomi
     pong_attach(n->waitset, n->input_reader);
 }
 
+/**
+ * @brief The worker thread loop for server networking.
+ * @param arg Pointer to the ServerNet structure.
+ * @return NULL.
+ */
 void *server_net_thread(void *arg)
 {
     ServerNet *n = (ServerNet *)arg;

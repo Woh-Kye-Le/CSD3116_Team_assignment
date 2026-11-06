@@ -1,7 +1,20 @@
+/**
+ * @file    game.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Core gameplay logic and rules.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <math.h>
 #include "game.h"
 
+/**
+ * @brief Centers the ball on the court and resets its velocity.
+ * @param g Pointer to the Game structure.
+ */
 static void center_ball(Game *g)
 {
     g->ball_x = WIDTH / 2.0f;
@@ -9,6 +22,10 @@ static void center_ball(Game *g)
     g->ball_vx = g->ball_vy = 0.0f;
 }
 
+/**
+ * @brief Transitions the game to the waiting phase.
+ * @param g Pointer to the Game structure.
+ */
 static void to_waiting(Game *g)
 {
     g->phase = PHASE_WAITING;
@@ -19,6 +36,10 @@ static void to_waiting(Game *g)
     center_ball(g);
 }
 
+/**
+ * @brief Starts a new match, resetting scores and entering countdown.
+ * @param g Pointer to the Game structure.
+ */
 static void start_match(Game *g)
 {
     g->score[0] = g->score[1] = 0;
@@ -30,6 +51,10 @@ static void start_match(Game *g)
     printf("[game] Match starting\n");
 }
 
+/**
+ * @brief Launches the ball with a random angle.
+ * @param g Pointer to the Game structure.
+ */
 static void launch_ball(Game *g)
 {
     float angle = ((float)randombytes_uniform(1001) / 1000.0f * 2.0f - 1.0f) * 0.5236f;
@@ -38,6 +63,14 @@ static void launch_ball(Game *g)
     g->ball_vy = g->ball_speed * sinf(angle);
 }
 
+/**
+ * @brief Checks and handles collisions between the ball and a paddle.
+ * @param g Pointer to the Game structure.
+ * @param old_x The previous X position of the ball.
+ * @param old_y The previous Y position of the ball.
+ * @param side The side of the paddle (0 for left, 1 for right).
+ * @return true if the ball hit the paddle, false otherwise.
+ */
 static bool hit_paddle(Game *g, float old_x, float old_y, int side)
 {
     const float half = BALL_SIZE / 2.0f;
@@ -80,6 +113,11 @@ static bool hit_paddle(Game *g, float old_x, float old_y, int side)
     return true;
 }
 
+/**
+ * @brief Handles scoring a point for a player.
+ * @param g Pointer to the Game structure.
+ * @param scorer The ID of the player who scored (1 or 2).
+ */
 static void score_point(Game *g, int scorer)
 {
     g->score[scorer - 1]++;
@@ -101,6 +139,11 @@ static void score_point(Game *g, int scorer)
     }
 }
 
+/**
+ * @brief Updates the ball position and handles collisions.
+ * @param g Pointer to the Game structure.
+ * @param dt Time elapsed since the last update in seconds.
+ */
 static void step_ball(Game *g, float dt)
 {
     const float half = BALL_SIZE / 2.0f;
@@ -129,6 +172,13 @@ static void step_ball(Game *g, float dt)
         score_point(g, 1);
 }
 
+/**
+ * @brief Moves the paddles based on player input.
+ * @param g Pointer to the Game structure.
+ * @param active Array indicating whether each player is currently active.
+ * @param dir Array containing the input direction of each player.
+ * @param dt Time elapsed since the last update in seconds.
+ */
 static void move_paddles(Game *g, const bool active[MAX_PLAYERS], const int8_t dir[MAX_PLAYERS], float dt)
 {
     for (int i = 0; i < MAX_PLAYERS; i++)
@@ -142,6 +192,10 @@ static void move_paddles(Game *g, const bool active[MAX_PLAYERS], const int8_t d
     }
 }
 
+/**
+ * @brief Initializes the game state.
+ * @param g Pointer to the Game structure to initialize.
+ */
 void game_init(Game *g)
 {
     to_waiting(g);
@@ -149,11 +203,23 @@ void game_init(Game *g)
         game_reset_paddle(g, i);
 }
 
+/**
+ * @brief Resets a player's paddle to its starting position.
+ * @param g Pointer to the Game structure.
+ * @param idx Index of the player (0 or 1).
+ */
 void game_reset_paddle(Game *g, int idx)
 {
     g->paddle_y[idx] = (HEIGHT - PADDLE_H) / 2.0f;
 }
 
+/**
+ * @brief Updates the game state for one frame.
+ * @param g Pointer to the Game structure.
+ * @param active Array indicating whether each player is currently active.
+ * @param dir Array containing the input direction of each player.
+ * @param dt Time elapsed since the last update in seconds.
+ */
 void game_update(Game *g, const bool active[MAX_PLAYERS], const int8_t dir[MAX_PLAYERS], float dt)
 {
     bool both_present = active[0] && active[1];
@@ -202,6 +268,13 @@ void game_update(Game *g, const bool active[MAX_PLAYERS], const int8_t dir[MAX_P
     }
 }
 
+/**
+ * @brief Toggles the game pause state.
+ * @param g Pointer to the Game structure.
+ * @param player_id The ID of the player requesting the pause.
+ * @param both_present Boolean indicating if both players are present.
+ * @return true if the pause state was successfully toggled, false otherwise.
+ */
 bool game_toggle_pause(Game *g, int player_id, bool both_present)
 {
     if (!both_present || g->phase == PHASE_WAITING)
@@ -212,6 +285,12 @@ bool game_toggle_pause(Game *g, int player_id, bool both_present)
     return true;
 }
 
+/**
+ * @brief Creates a snapshot of the current game state for network transmission.
+ * @param g Pointer to the Game structure.
+ * @param active_mask Bitmask of active players.
+ * @param s Pointer to the GameSnapshot structure to populate.
+ */
 void game_snapshot(const Game *g, uint8_t active_mask, GameSnapshot *s)
 {
     s->ball_x = g->ball_x;

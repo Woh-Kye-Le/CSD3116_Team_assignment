@@ -1,3 +1,12 @@
+/**
+ * @file    protocol.h
+ * @author  Sung Hong Chieh Jethro
+ * @date    2026-11-04
+ *
+ * @brief   Communication protocol and message structures.
+ *
+ * @version 1.0
+ */
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
@@ -65,12 +74,38 @@ typedef struct
     uint8_t pause_presses;
 } InputPayload;
 
+/**
+ * @brief Pack a game snapshot into a byte array.
+ * @param s Pointer to the GameSnapshot to pack.
+ * @param out The byte array to store the packed state.
+ */
 void pack_state(const GameSnapshot *s, uint8_t out[STATE_PLAIN_LEN]);
+
+/**
+ * @brief Unpack a byte array into a game snapshot.
+ * @param in The byte array containing the packed state.
+ * @param s Pointer to the GameSnapshot to store the unpacked state.
+ */
 void unpack_state(const uint8_t in[STATE_PLAIN_LEN], GameSnapshot *s);
 
+/**
+ * @brief Pack an input payload into a byte array.
+ * @param p Pointer to the InputPayload to pack.
+ * @param out The byte array to store the packed input.
+ */
 void pack_input(const InputPayload *p, uint8_t out[INPUT_PLAIN_LEN]);
+
+/**
+ * @brief Unpack a byte array into an input payload.
+ * @param in The byte array containing the packed input.
+ * @param p Pointer to the InputPayload to store the unpacked input.
+ */
 void unpack_input(const uint8_t in[INPUT_PLAIN_LEN], InputPayload *p);
 
+/**
+ * @brief Get the current monotonic time.
+ * @return The current monotonic time in DDS time format.
+ */
 dds_time_t mono_now(void);
 
 #endif

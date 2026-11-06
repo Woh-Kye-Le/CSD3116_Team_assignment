@@ -1,3 +1,12 @@
+/**
+ * @file    screens.c
+ * @author  Woh Kye Le
+ * @date    2026-11-04
+ *
+ * @brief   Screen and UI state management.
+ *
+ * @version 1.0
+ */
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 #include "screens.h"
@@ -46,11 +55,24 @@ static const InstructionLine k_instructions[] =
     { LINE_TEXT,   "First to 5 points wins, then a new match starts.", NULL },
 };
 
+/**
+ * @brief Calculates the Y coordinate for a menu item.
+ *
+ * @param i The index of the menu item.
+ * @return The Y coordinate of the menu item.
+ */
 static float menu_item_y(int i)
 {
     return MENU_TOP + (float)i * MENU_GAP;
 }
 
+/**
+ * @brief Determines which menu item is located at the given coordinates.
+ *
+ * @param mx The x-coordinate of the mouse.
+ * @param my The y-coordinate of the mouse.
+ * @return The index of the menu item, or -1 if no item is at the coordinates.
+ */
 int screens_menu_item_at(double mx, double my)
 {
     float x = WIDTH / 2.0f - MENU_ITEM_W / 2.0f;
@@ -63,11 +85,24 @@ int screens_menu_item_at(double mx, double my)
     return -1;
 }
 
+/**
+ * @brief Checks if the back button is located at the given coordinates.
+ *
+ * @param mx The x-coordinate of the mouse.
+ * @param my The y-coordinate of the mouse.
+ * @return True if the back button is at the coordinates, false otherwise.
+ */
 bool screens_back_button_at(double mx, double my)
 {
     return mx >= BACK_X && mx <= BACK_X + BACK_W && my >= BACK_Y && my <= BACK_Y + BACK_H;
 }
 
+/**
+ * @brief Renders the main menu screen.
+ *
+ * @param ui Pointer to the UI state.
+ * @param username The username of the player.
+ */
 static void render_menu(const UiState *ui, const char *username)
 {
     draw_background(false);
@@ -93,6 +128,11 @@ static void render_menu(const UiState *ui, const char *username)
     draw_text_centered(WIDTH / 2.0f, 560, 2.0f, buf);
 }
 
+/**
+ * @brief Renders the instructions screen.
+ *
+ * @param ui Pointer to the UI state.
+ */
 static void render_instructions(const UiState *ui)
 {
     draw_background(false);
@@ -130,6 +170,12 @@ static void render_instructions(const UiState *ui)
     draw_button(BACK_X, BACK_Y, BACK_W, BACK_H, "BACK", ui->back_hover);
 }
 
+/**
+ * @brief Renders the connecting screen while waiting for the server.
+ *
+ * @param v Pointer to the client view state.
+ * @param username The username of the player.
+ */
 static void render_connecting(const ClientView *v, const char *username)
 {
     char buf[64];
@@ -141,6 +187,11 @@ static void render_connecting(const ClientView *v, const char *username)
     draw_text_centered(WIDTH / 2.0f, HEIGHT - 40, 2.0f, buf);
 }
 
+/**
+ * @brief Renders the player scores.
+ *
+ * @param s Pointer to the game snapshot containing the scores.
+ */
 static void render_scores(const GameSnapshot *s)
 {
     char buf[16];
@@ -157,6 +208,12 @@ static void render_scores(const GameSnapshot *s)
     }
 }
 
+/**
+ * @brief Renders the game field, including paddles and the ball.
+ *
+ * @param s Pointer to the game snapshot.
+ * @param me The index of the current player.
+ */
 static void render_field(const GameSnapshot *s, int me)
 {
     for (int i = 0; i < MAX_PLAYERS; i++)
@@ -179,6 +236,12 @@ static void render_field(const GameSnapshot *s, int me)
     effects_draw_particles();
 }
 
+/**
+ * @brief Renders phase-specific messages (e.g., waiting, countdown, game over).
+ *
+ * @param s Pointer to the game snapshot.
+ * @param player_id The ID of the current player.
+ */
 static void render_phase_message(const GameSnapshot *s, int player_id)
 {
     char buf[64];
@@ -210,6 +273,12 @@ static void render_phase_message(const GameSnapshot *s, int player_id)
     }
 }
 
+/**
+ * @brief Renders the footer containing user and control information.
+ *
+ * @param v Pointer to the client view state.
+ * @param username The username of the player.
+ */
 static void render_footer(const ClientView *v, const char *username)
 {
     char buf[128];
@@ -219,6 +288,12 @@ static void render_footer(const ClientView *v, const char *username)
     draw_text_centered(WIDTH / 2.0f, HEIGHT - 22, 1.6f, buf);
 }
 
+/**
+ * @brief Renders the pause overlay when the game is paused.
+ *
+ * @param s Pointer to the game snapshot.
+ * @param player_id The ID of the current player.
+ */
 static void render_pause_overlay(const GameSnapshot *s, int player_id)
 {
     char buf[64];
@@ -234,6 +309,12 @@ static void render_pause_overlay(const GameSnapshot *s, int player_id)
     draw_text_centered(WIDTH / 2.0f, HEIGHT / 2.0f + 60, 2.0f, "Esc: resume      Q: leave to menu");
 }
 
+/**
+ * @brief Renders the game screen.
+ *
+ * @param v Pointer to the client view state.
+ * @param username The username of the player.
+ */
 static void render_game(const ClientView *v, const char *username)
 {
     draw_background(true);
@@ -261,6 +342,13 @@ static void render_game(const ClientView *v, const char *username)
         render_pause_overlay(s, v->player_id);
 }
 
+/**
+ * @brief Renders the current screen based on the UI state.
+ *
+ * @param ui Pointer to the UI state.
+ * @param view Pointer to the client view state.
+ * @param username The username of the player.
+ */
 void screens_render(const UiState *ui, const ClientView *view, const char *username)
 {
     switch (ui->screen)
